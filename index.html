@@ -3,219 +3,295 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>투 두 리스트 - 단일 파일</title>
+  <title>Teachable Machine Image Model · Demo</title>
+  <meta name="color-scheme" content="light dark" />
   <style>
-    :root { --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#111827; }
+    :root{
+      --bg: #0f172a;            /* slate-900 */
+      --bg2: #0b1224;           /* darker */
+      --card:#0b1224;           
+      --text:#e5e7eb;           /* gray-200 */
+      --muted:#94a3b8;          /* slate-400 */
+      --line:#1f2937;           /* slate-800 */
+      --accent:#60a5fa;         /* blue-400 */
+      --accent-2:#22d3ee;       /* cyan-400 */
+      --ok:#34d399;             /* green-400 */
+      --warn:#fbbf24;           /* amber-400 */
+      --err:#f87171;            /* red-400 */
+      --shadow: 0 10px 40px rgba(0,0,0,.35);
+    }
+    @media (prefers-color-scheme: light){
+      :root{--bg:#f8fafc;--bg2:#eef2ff;--card:#ffffff;--text:#0f172a;--muted:#64748b;--line:#e5e7eb;--shadow:0 10px 30px rgba(2,6,23,.08)}
+    }
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple Color Emoji,Noto Color Emoji,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
-    .container{max-width:720px;margin:32px auto;padding:20px}
-    h1{margin:0 0 16px;font-size:28px}
-    .row{display:flex;gap:8px}
-    .input{flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}
-    .btn{padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer}
-    .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-    .btn:hover{filter:brightness(0.98)}
-    .toolbar{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;margin:10px 0 8px}
-    .seg{display:inline-flex;gap:6px;border:1px solid var(--line);border-radius:12px;padding:4px}
-    .seg .chip{border:0;background:transparent;padding:6px 10px;border-radius:8px;cursor:pointer}
-    .seg .chip.active{background:var(--accent);color:#fff}
-    .search{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
-    .muted{color:var(--muted);font-size:12px;margin-bottom:8px}
-    .list{display:flex;flex-direction:column;gap:8px}
-    .item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.03)}
-    .item .text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .done .text{color:#94a3b8;text-decoration:line-through}
-    .item .actions{display:flex;gap:6px;opacity:.7}
-    .item .handle{cursor:grab;color:#94a3b8;padding:0 6px;user-select:none}
-    .empty{padding:28px;text-align:center;border:1px dashed var(--line);border-radius:14px;color:#94a3b8;background:#fff}
-    .editrow{display:grid;grid-template-columns:1fr auto;gap:8px}
-    .sr{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
-    footer{margin-top:12px;color:#94a3b8;font-size:12px}
-    @media (max-width:520px){ .item{grid-template-columns:auto 1fr auto} }
+    html,body{height:100%}
+    body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Apple Color Emoji,Noto Color Emoji,Helvetica,Arial,sans-serif;color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% -20%, rgba(96,165,250,.25), transparent 60%),
+        radial-gradient(1200px 600px at 120% 20%, rgba(34,211,238,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      min-height:100vh;
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:var(--shadow)}
+    h1{font-size:20px;margin:0}
+    .card{display:grid;grid-template-columns:1fr min(420px,40%);gap:18px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+    @media (max-width:980px){ .card{grid-template-columns:1fr} }
+
+    .stage{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#000;min-height:220px}
+    .stage canvas{display:block;width:100%;height:auto}
+    .badge{position:absolute;left:12px;top:12px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;backdrop-filter: blur(6px)}
+    .hud{position:absolute;right:12px;top:12px;display:flex;gap:6px}
+    .hud .pill{font-size:12px;padding:6px 10px;border-radius:999px;background:rgba(15,23,42,.65);border:1px solid rgba(255,255,255,.12)}
+
+    .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .btn{appearance:none;cursor:pointer;border:1px solid var(--line);background:transparent;color:inherit;padding:10px 14px;border-radius:12px}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0b1224;border:0;font-weight:600}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+    .switch input{accent-color:var(--accent)}
+
+    .side{display:flex;flex-direction:column;gap:12px}
+    .panel{border:1px solid var(--line);border-radius:14px;padding:14px;background:linear-gradient(180deg, rgba(255,255,255,.02), transparent)}
+    .panel h2{margin:0 0 8px;font-size:14px;color:var(--muted);letter-spacing:.02em}
+
+    .pred{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:8px;border-radius:10px}
+    .pred.top{background:linear-gradient(180deg, rgba(96,165,250,.12), rgba(34,211,238,.08));}
+    .bar{height:8px;border-radius:999px;background:rgba(148,163,184,.25);overflow:hidden}
+    .bar > span{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+    .pct{font-variant-numeric:tabular-nums;min-width:56px;text-align:right}
+
+    .note{color:var(--muted);font-size:12px}
+    footer{margin-top:18px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    a{color:var(--accent)}
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>투 두 리스트</h1>
-
-    <form id="addForm" class="row" autocomplete="off">
-      <input id="newText" class="input" maxlength="500" placeholder="할 일을 입력하고 Enter" aria-label="할 일 입력" />
-      <button class="btn primary" type="submit">추가</button>
-    </form>
-
-    <div class="toolbar">
-      <div class="row" style="gap:8px">
-        <button id="toggleAll" class="btn" aria-label="전체 토글">전체 토글</button>
-        <button id="clearDone" class="btn" aria-label="완료 삭제">완료 삭제</button>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>Teachable Machine Image Model</h1>
       </div>
-      <div class="row" style="gap:8px;align-items:center">
-        <div class="seg" role="tablist" aria-label="필터">
-          <button class="chip active" data-filter="all" role="tab" aria-selected="true">전체</button>
-          <button class="chip" data-filter="active" role="tab" aria-selected="false">미완료</button>
-          <button class="chip" data-filter="done" role="tab" aria-selected="false">완료</button>
+      <div class="note">웹캠을 사용하려면 <strong>HTTPS</strong> 환경에서 열어주세요.</div>
+    </header>
+
+    <section class="card">
+      <!-- LEFT: Webcam Stage -->
+      <div>
+        <div class="stage" id="stage">
+          <div class="badge" id="status">대기 중</div>
+          <div class="hud">
+            <div class="pill" id="fps">FPS –</div>
+            <div class="pill" id="size">200×200</div>
+          </div>
+          <!-- webcam canvas will mount here -->
         </div>
-        <input id="q" class="search" placeholder="검색" aria-label="검색" />
+        <div class="controls">
+          <button class="btn primary" id="btnStart" type="button">Start</button>
+          <button class="btn" id="btnStop" type="button" disabled>Stop</button>
+          <label class="switch"><input type="checkbox" id="flip" checked> 미러(좌우 반전)</label>
+          <label class="switch"><input type="checkbox" id="envCam"> 후면 카메라 시도(모바일)</label>
+          <label class="switch">해상도
+            <select id="sizeSel" class="btn" style="padding:8px 10px">
+              <option value="200">200</option>
+              <option value="224">224</option>
+              <option value="320">320</option>
+            </select>
+          </label>
+        </div>
       </div>
-    </div>
 
-    <div id="counter" class="muted">남은 작업: 0개</div>
+      <!-- RIGHT: Predictions / Info -->
+      <aside class="side">
+        <div class="panel">
+          <h2>예측 결과</h2>
+          <div id="preds"></div>
+        </div>
+        <div class="panel">
+          <h2>모델 정보</h2>
+          <div class="note">
+            이 페이지는 <a href="https://teachablemachine.withgoogle.com/" target="_blank" rel="noreferrer">Teachable Machine</a>으로 내보낸 이미지 분류 모델을 사용합니다.<br/>
+            모델 URL: <code id="modelUrl">https://teachablemachine.withgoogle.com/models/d4MkkHFnX/</code>
+          </div>
+        </div>
+      </aside>
+    </section>
 
-    <div id="list" class="list" role="list"></div>
-    <div id="empty" class="empty" hidden>항목이 없습니다. 새로운 할 일을 추가해 보세요!</div>
-
-    <div id="live" class="sr" aria-live="polite"></div>
-
-    <footer>저장 위치: localStorage · 더블클릭으로 편집 · 드래그로 순서 변경</footer>
+    <footer>
+      <span>키보드: <kbd>Space</kbd> = Start/Stop</span>
+      <span>Tip: iOS는 사파리에서만 카메라 사용이 안정적입니다.</span>
+    </footer>
   </div>
 
+  <!-- TFJS & Teachable Machine (official CDNs) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
   <script>
-    const KEY = 'todoapp:v1:tasks.html';
-    const $ = (sel, el=document) => el.querySelector(sel);
-    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+    // === Configuration ===
+    const URL = "https://teachablemachine.withgoogle.com/models/d4MkkHFnX/"; // <- 사용자 모델 URL
 
-    // --- state ---
-    let tasks = load();
-    let ui = {
-      list: $('#list'),
-      empty: $('#empty'),
-      counter: $('#counter'),
-      live: $('#live'),
-      filter: 'all',
-      q: ''
-    };
+    // === State ===
+    let model, webcam, maxPredictions = 0;
+    let running = false;
+    let lastFrameTime = performance.now();
 
-    function uid(){ return (Date.now().toString(36)+Math.random().toString(36).slice(2,8)).toUpperCase(); }
-    function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||[] }catch{ return [] } }
-    function save(){ localStorage.setItem(KEY, JSON.stringify(tasks)); }
+    // === Elements ===
+    const statusEl = document.getElementById('status');
+    const fpsEl = document.getElementById('fps');
+    const sizeEl = document.getElementById('size');
+    const stageEl = document.getElementById('stage');
+    const predsEl = document.getElementById('preds');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const flipChk = document.getElementById('flip');
+    const envCamChk = document.getElementById('envCam');
+    const sizeSel = document.getElementById('sizeSel');
+    document.getElementById('modelUrl').textContent = URL;
 
-    // --- render ---
-    function render(){
-      const q = ui.q.trim().toLowerCase();
-      const filtered = tasks.filter(t=>{
-        if(ui.filter==='active' && t.done) return false;
-        if(ui.filter==='done' && !t.done) return false;
-        if(q && !t.text.toLowerCase().includes(q)) return false;
-        return true;
-      });
-      ui.list.innerHTML = '';
-      ui.empty.hidden = filtered.length !== 0;
-      filtered.forEach((t,i)=> ui.list.appendChild(Item(t,i)) );
-      ui.counter.textContent = `남은 작업: ${tasks.filter(t=>!t.done).length}개`;
-      save();
+    // === Helpers ===
+    function setStatus(text, tone){
+      statusEl.textContent = text;
+      statusEl.style.background = tone === 'ok' ? 'rgba(16,185,129,.85)'
+        : tone === 'warn' ? 'rgba(245,158,11,.85)'
+        : tone === 'err' ? 'rgba(239,68,68,.85)'
+        : 'rgba(0,0,0,.55)';
     }
 
-    // --- item element ---
-    function Item(task, index){
-      const row = document.createElement('div');
-      row.className = 'item' + (task.done ? ' done' : '');
-      row.setAttribute('role','listitem');
-      row.draggable = true;
-      row.dataset.id = task.id;
+    function cls(node){ while(node.firstChild) node.removeChild(node.firstChild); }
 
-      const cb = document.createElement('input');
-      cb.type='checkbox'; cb.checked=task.done; cb.ariaLabel='완료 토글';
-      cb.addEventListener('change', ()=>{
-        task.done = cb.checked;
-        ui.live.textContent=`${cb.checked?'완료됨':'미완료로 변경'}: ${task.text}`;
-        render();
+    function renderPredictions(list){
+      cls(predsEl);
+      if(!list || !list.length){
+        const p = document.createElement('div');
+        p.className='note';
+        p.textContent='예측 대기 중… Start를 눌러 주세요.';
+        predsEl.appendChild(p);
+        return;
+      }
+      // sort by prob desc
+      list.sort((a,b)=> b.probability - a.probability);
+      list.forEach((p, i)=>{
+        const row = document.createElement('div');
+        row.className = 'pred' + (i===0 ? ' top' : '');
+
+        const left = document.createElement('div');
+        left.style.display='grid';
+        left.style.gridTemplateColumns='1fr';
+        left.style.gap='8px';
+
+        const label = document.createElement('div');
+        label.textContent = p.className;
+
+        const bar = document.createElement('div');
+        bar.className='bar';
+        const span = document.createElement('span');
+        span.style.width = `${Math.round(p.probability*100)}%`;
+        bar.appendChild(span);
+
+        left.append(label, bar);
+
+        const pct = document.createElement('div');
+        pct.className='pct';
+        pct.textContent = (p.probability*100).toFixed(1) + '%';
+
+        row.append(left, pct);
+        predsEl.appendChild(row);
       });
-
-      const textBtn = document.createElement('button');
-      textBtn.className='text'; textBtn.title='더블클릭으로 수정'; textBtn.textContent=task.text;
-      textBtn.addEventListener('dblclick',()=>startEdit(task,row));
-
-      const actions = document.createElement('div');
-      actions.className='actions';
-      const edit = document.createElement('button'); edit.className='btn'; edit.textContent='수정';
-      edit.addEventListener('click',()=>startEdit(task,row));
-      const del = document.createElement('button'); del.className='btn'; del.style.color='#dc2626'; del.textContent='삭제';
-      del.addEventListener('click',()=>{
-        tasks = tasks.filter(x=>x.id!==task.id);
-        ui.live.textContent=`삭제됨: ${task.text}`;
-        render();
-      });
-      const handle = document.createElement('span'); handle.className='handle'; handle.title='드래그로 순서 변경'; handle.textContent='⋮⋮';
-      actions.append(edit, del, handle);
-
-      // drag & drop
-      row.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', task.id); });
-      row.addEventListener('dragover', e=>{ e.preventDefault(); });
-      row.addEventListener('drop', e=>{
-        e.preventDefault();
-        const dragId = e.dataTransfer.getData('text/plain');
-        const overId = task.id;
-        if(!dragId || dragId===overId) return;
-        const a = tasks.findIndex(t=>t.id===dragId);
-        const b = tasks.findIndex(t=>t.id===overId);
-        if(a<0||b<0) return;
-        const [m] = tasks.splice(a,1);
-        tasks.splice(b,0,m);
-        render();
-      });
-
-      row.append(cb, textBtn, actions);
-      return row;
     }
 
-    function startEdit(task, row){
-      const wrap = document.createElement('form');
-      wrap.className='editrow';
-      const input = document.createElement('input');
-      input.className='input';
-      input.value = task.text;
-      input.maxLength = 500;
-      const ok = document.createElement('button'); ok.className='btn primary'; ok.type='submit'; ok.textContent='저장';
-      const cancel = document.createElement('button'); cancel.className='btn'; cancel.type='button'; cancel.textContent='취소';
-      wrap.append(input, ok, cancel);
-      row.replaceWith(wrap);
-      input.focus(); input.selectionStart = input.value.length;
-
-      wrap.addEventListener('submit', (e)=>{
-        e.preventDefault();
-        const v = input.value.trim(); if(!v) return;
-        task.text = v; ui.live.textContent = '작업이 업데이트되었습니다.'; render();
-      });
-      cancel.addEventListener('click', render);
+    function updateFPS(){
+      const now = performance.now();
+      const dt = now - lastFrameTime;
+      lastFrameTime = now;
+      const fps = Math.max(1, Math.min(120, Math.round(1000/dt)));
+      fpsEl.textContent = `FPS ${fps}`;
     }
 
-    // --- handlers ---
-    $('#addForm').addEventListener('submit', e=>{
-      e.preventDefault();
-      const box = $('#newText');
-      const v = box.value.trim();
-      if(!v) return;
-      tasks.unshift({ id: uid(), text: v, done:false, createdAt: Date.now() });
-      ui.live.textContent = `추가됨: ${v}`;
-      box.value=''; box.focus();
-      render();
-    });
+    async function loadModel(){
+      const modelURL = URL + 'model.json';
+      const metadataURL = URL + 'metadata.json';
+      setStatus('모델 로딩 중…', 'warn');
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+      setStatus('모델 준비 완료', 'ok');
+    }
 
-    $('#toggleAll').addEventListener('click', ()=>{
-      const allDone = tasks.every(t=>t.done);
-      tasks = tasks.map(t=>({ ...t, done: !allDone }));
-      render();
-    });
+    async function setupWebcam(){
+      const size = parseInt(sizeSel.value, 10) || 200;
+      const flip = !!flipChk.checked;
+      sizeEl.textContent = `${size}×${size}`;
 
-    $('#clearDone').addEventListener('click', ()=>{
-      const count = tasks.filter(t=>t.done).length;
-      tasks = tasks.filter(t=>!t.done);
-      ui.live.textContent = `${count}개 완료 작업이 삭제되었습니다.`;
-      render();
-    });
+      // If a webcam already exists, stop and remove it first
+      if(webcam){
+        try{ webcam.stop(); }catch(e){}
+        try{ stageEl.removeChild(webcam.canvas); }catch(e){}
+      }
 
-    $$('.chip').forEach(chip=>{
-      chip.addEventListener('click', ()=>{
-        $$('.chip').forEach(c=>c.classList.remove('active'));
-        chip.classList.add('active');
-        ui.filter = chip.dataset.filter;
-        render();
-      });
-    });
+      webcam = new tmImage.Webcam(size, size, flip);
 
-    $('#q').addEventListener('input', e=>{ ui.q = e.target.value; render(); });
+      // On some devices it's helpful to hint facingMode
+      const useEnv = envCamChk.checked;
+      const constraints = useEnv ? { facingMode: { exact: 'environment' } } : { facingMode: 'user' };
 
-    // 초기 렌더
-    render();
-  </script>
-</body>
-</html>
+      setStatus('카메라 요청 중…', 'warn');
+      try{
+        await webcam.setup(constraints); // ask for camera permissions
+      }catch(err){
+        console.error(err);
+        setStatus('카메라 접근 거부 또는 오류', 'err');
+        throw err;
+      }
+
+      await webcam.play();
+      stageEl.appendChild(webcam.canvas);
+      setStatus('예측 중…', 'ok');
+    }
+
+    async function predict(){
+      if(!model || !webcam) return;
+      webcam.update();
+      const prediction = await model.predict(webcam.canvas);
+      updateFPS();
+      renderPredictions(prediction);
+    }
+
+    async function loop(){
+      if(!running) return;
+      await predict();
+      requestAnimationFrame(loop);
+    }
+
+    async function start(){
+      if(running) return;
+      btnStart.disabled = true; btnStop.disabled = false;
+      try{
+        if(!model) await loadModel();
+        await setupWebcam();
+        running = true;
+        loop();
+      }catch(err){
+        btnStart.disabled = false; btnStop.disabled = true;
+        alert('실행 중 오류가 발생했습니다. HTTPS 환경인지, 카메라 권한이 허용되었는지 확인해 주세요.\n\nConsole을 열어 상세 로그를 확인하세요.');
+      }
+    }
+
+    function stop(){
+      running = false;
+      try{ webcam && webcam.stop(); }catch(e){}
+      btnStart.disabled = false; btnStop.disabled = true;
+      setStatus('중지됨', 'warn');
+    }
+
+    // === Wire up UI ===
+    btnStart.addEventListener('click', start);
+    btnStop.addEventListener('click', stop);
+    sizeSel.addEventListener('change', ()=>{ if(running) start(); });
+    flipChk.addEventListener('change', ()=>{ if(running) start(); });
+    envCamChk.addEventListener('change', ()=>{ if(running) start(); });
+    document.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); running? stop(): start(); }});
+
+    // Initial render for prediction
