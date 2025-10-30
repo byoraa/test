@@ -225,25 +225,48 @@
       const flip = !!flipChk.checked;
       sizeEl.textContent = `${size}×${size}`;
 
-      // If a webcam already exists, stop and remove it first
+      // Dispose previous webcam if exists
       if(webcam){
         try{ webcam.stop(); }catch(e){}
         try{ stageEl.removeChild(webcam.canvas); }catch(e){}
+        webcam = null;
+      }
+
+      // Preflight checks
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        setStatus('이 브라우저는 카메라를 지원하지 않습니다.', 'err');
+        throw new Error('mediaDevices.getUserMedia unsupported');
+      }
+      if(!isSecureContext){
+        setStatus('HTTPS가 필요합니다 (또는 http://localhost).', 'err');
+        throw new Error('Page must be served over HTTPS');
       }
 
       webcam = new tmImage.Webcam(size, size, flip);
 
-      // On some devices it's helpful to hint facingMode
-      const useEnv = envCamChk.checked;
-      const constraints = useEnv ? { facingMode: { exact: 'environment' } } : { facingMode: 'user' };
+      // Try environment (back) camera first when requested; gracefully fall back
+      const wantEnv = envCamChk.checked;
+      const tryList = [];
+      if(wantEnv) tryList.push({ video: { facingMode: { ideal: 'environment' } } });
+      tryList.push({ video: { facingMode: 'user' } });
+      tryList.push(undefined); // final generic fallback
 
       setStatus('카메라 요청 중…', 'warn');
-      try{
-        await webcam.setup(constraints); // ask for camera permissions
-      }catch(err){
-        console.error(err);
-        setStatus('카메라 접근 거부 또는 오류', 'err');
-        throw err;
+      let lastErr;
+      for(const c of tryList){
+        try{
+          await webcam.setup(c); // ask for camera permissions with hint
+          lastErr = null;
+          break;
+        }catch(err){
+          lastErr = err;
+          continue;
+        }
+      }
+      if(lastErr){
+        console.error(lastErr);
+        setStatus('카메라 접근 거부 또는 장치 없음', 'err');
+        throw lastErr;
       }
 
       await webcam.play();
@@ -251,7 +274,7 @@
       setStatus('예측 중…', 'ok');
     }
 
-    async function predict(){
+    async function predict()(){
       if(!model || !webcam) return;
       webcam.update();
       const prediction = await model.predict(webcam.canvas);
@@ -294,4 +317,8 @@
     envCamChk.addEventListener('change', ()=>{ if(running) start(); });
     document.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); running? stop(): start(); }});
 
-    // Initial render for prediction
+    // Initial render for prediction panel
+    renderPredictions([]);
+  </script>
+</body>
+</html>
