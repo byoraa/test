@@ -1,14 +1,358 @@
-<html>
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-<head>
-<title> 송림초 4학년 2반 </title>
-</head>
+/**
+ * Single-file To‑Do List App (React + TailwindCSS)
+ * - Add / Edit / Delete
+ * - Toggle complete & Clear completed
+ * - Filters: All / Active / Completed + keyword search
+ * - Reorder via drag & drop
+ * - Persist to localStorage
+ * - Accessible (labels, aria-live, keyboard friendly)
+ */
 
-<body>
-안녕
-<h1> hello </h1>
-<h4> hi </h4>
-<p> hi </p>
-</body>
+const STORAGE_KEY = "todoapp:v1:tasks";
 
-</html>
+function uid() {
+  return (
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+  ).toUpperCase();
+}
+
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((t) => ({
+      id: t.id || uid(),
+      text: String(t.text || "").slice(0, 500),
+      done: Boolean(t.done),
+      createdAt: t.createdAt || Date.now(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function saveTasks(tasks) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+}
+
+function useTasks() {
+  const [tasks, setTasks] = useState(() => loadTasks());
+  useEffect(() => saveTasks(tasks), [tasks]);
+  return [tasks, setTasks];
+}
+
+function TaskRow({
+  task,
+  index,
+  onToggle,
+  onDelete,
+  onStartEdit,
+  draggableProps,
+}) {
+  return (
+    <div
+      className="group grid grid-cols-[auto,1fr,auto] items-center gap-3 rounded-2xl border p-3 shadow-sm hover:shadow transition"
+      draggable
+      onDragStart={(e) => draggableProps.onDragStart(e, index)}
+      onDragOver={(e) => draggableProps.onDragOver(e, index)}
+      onDrop={(e) => draggableProps.onDrop(e, index)}
+      onDragEnd={draggableProps.onDragEnd}
+      role="listitem"
+      aria-label={task.text}
+    >
+      <input
+        type="checkbox"
+        className="h-5 w-5 rounded border-gray-300"
+        checked={task.done}
+        onChange={() => onToggle(task.id)}
+        aria-label="완료 토글"
+      />
+      <button
+        className={`text-left truncate pr-2 ${
+          task.done ? "line-through text-gray-400" : "text-gray-800"
+        }`}
+        onDoubleClick={() => onStartEdit(task.id)}
+        onClick={(e) => {
+          // Single-click selects text for accessibility; double-click edits
+          if (window.getSelection()?.toString()) return;
+        }}
+        title="더블클릭으로 수정"
+      >
+        {task.text}
+      </button>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+        <button
+          onClick={() => onStartEdit(task.id)}
+          className="rounded-xl px-2 py-1 text-sm hover:bg-gray-100"
+          aria-label="작업 편집"
+        >
+          수정
+        </button>
+        <button
+          onClick={() => onDelete(task.id)}
+          className="rounded-xl px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+          aria-label="작업 삭제"
+        >
+          삭제
+        </button>
+        <span className="cursor-grab select-none px-2 text-gray-400" title="드래그로 순서 변경">
+          ⋮⋮
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function EditRow({ task, onSave, onCancel }) {
+  const [value, setValue] = useState(task.text);
+  const inputRef = useRef(null);
+  useEffect(() => inputRef.current?.focus(), []);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const v = value.trim();
+        if (!v) return;
+        onSave({ ...task, text: v });
+      }}
+      className="grid grid-cols-[1fr,auto] items-center gap-2 rounded-2xl border p-3 shadow-sm bg-white"
+    >
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring"
+        placeholder="할 일을 수정하세요"
+        maxLength={500}
+        aria-label="작업 내용 수정"
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          className="rounded-xl bg-black px-3 py-2 text-white hover:opacity-90"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border px-3 py-2 hover:bg-gray-50"
+        >
+          취소
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export default function TodoListApp() {
+  const [tasks, setTasks] = useTasks();
+  const [editingId, setEditingId] = useState(null);
+  const [filter, setFilter] = useState("all"); // all | active | done
+  const [query, setQuery] = useState("");
+  const [dragIndex, setDragIndex] = useState(null);
+  const liveRef = useRef(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return tasks.filter((t) => {
+      if (filter === "active" && t.done) return false;
+      if (filter === "done" && !t.done) return false;
+      if (q && !t.text.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [tasks, filter, query]);
+
+  const leftCount = tasks.filter((t) => !t.done).length;
+
+  const addTask = (text) => {
+    const v = text.trim();
+    if (!v) return;
+    setTasks((prev) => [
+      { id: uid(), text: v, done: false, createdAt: Date.now() },
+      ...prev,
+    ]);
+    liveRef.current.textContent = `추가됨: ${v}`;
+  };
+
+  const toggleTask = (id) =>
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+    );
+
+  const deleteTask = (id) => {
+    const victim = tasks.find((t) => t.id === id);
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    liveRef.current.textContent = `삭제됨: ${victim?.text ?? "작업"}`;
+  };
+
+  const startEdit = (id) => setEditingId(id);
+  const cancelEdit = () => setEditingId(null);
+  const saveEdit = (next) => {
+    setTasks((prev) => prev.map((t) => (t.id === next.id ? next : t)));
+    setEditingId(null);
+    liveRef.current.textContent = "작업이 업데이트되었습니다.";
+  };
+
+  const clearCompleted = () => {
+    const count = tasks.filter((t) => t.done).length;
+    setTasks((prev) => prev.filter((t) => !t.done));
+    liveRef.current.textContent = `${count}개 완료 작업이 삭제되었습니다.`;
+  };
+
+  const toggleAll = () => {
+    const allDone = tasks.every((t) => t.done);
+    setTasks((prev) => prev.map((t) => ({ ...t, done: !allDone })));
+  };
+
+  // Drag & Drop handlers (index-based)
+  const dnd = {
+    onDragStart: (_e, index) => setDragIndex(index),
+    onDragOver: (e) => e.preventDefault(),
+    onDrop: (_e, dropIndex) => {
+      setTasks((prev) => {
+        const list = [...prev];
+        const currentFiltered = filtered; // snapshot
+        const draggingId = currentFiltered[dragIndex]?.id;
+        const droppingId = currentFiltered[dropIndex]?.id;
+        if (!draggingId || !droppingId) return prev;
+        const from = list.findIndex((t) => t.id === draggingId);
+        const to = list.findIndex((t) => t.id === droppingId);
+        if (from < 0 || to < 0) return prev;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        return list;
+      });
+      setDragIndex(null);
+    },
+    onDragEnd: () => setDragIndex(null),
+  };
+
+  // Add form state
+  const [text, setText] = useState("");
+  const inputRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    addTask(text);
+    setText("");
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl p-6">
+      <h1 className="mb-4 text-3xl font-bold tracking-tight">투 두 리스트</h1>
+
+      {/* Add */}
+      <form onSubmit={handleSubmit} className="mb-4 flex gap-2">
+        <input
+          ref={inputRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="할 일을 입력하고 Enter"
+          aria-label="할 일 입력"
+          className="w-full rounded-2xl border px-4 py-3 shadow-sm focus:outline-none focus:ring"
+          maxLength={500}
+        />
+        <button
+          type="submit"
+          className="rounded-2xl bg-black px-5 py-3 text-white shadow-sm hover:opacity-90"
+        >
+          추가
+        </button>
+      </form>
+
+      {/* Toolbar */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleAll}
+            className="rounded-xl border px-3 py-2 hover:bg-gray-50"
+            aria-label="전체 토글"
+          >
+            전체 토글
+          </button>
+          <button
+            onClick={clearCompleted}
+            className="rounded-xl border px-3 py-2 hover:bg-gray-50"
+          >
+            완료 삭제
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-xl border p-1">
+            {[
+              { k: "all", label: "전체" },
+              { k: "active", label: "미완료" },
+              { k: "done", label: "완료" },
+            ].map((f) => (
+              <button
+                key={f.k}
+                onClick={() => setFilter(f.k)}
+                className={`rounded-lg px-3 py-1.5 text-sm ${
+                  filter === f.k ? "bg-black text-white" : "hover:bg-gray-50"
+                }`}
+                aria-pressed={filter === f.k}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="검색"
+            className="rounded-xl border px-3 py-2 focus:outline-none focus:ring"
+            aria-label="검색"
+          />
+        </div>
+      </div>
+
+      {/* Counter */}
+      <div className="mb-2 text-sm text-gray-500">남은 작업: {leftCount}개</div>
+
+      {/* List */}
+      <div role="list" className="flex flex-col gap-2">
+        {filtered.length === 0 && (
+          <div className="rounded-2xl border p-6 text-center text-gray-500">
+            항목이 없습니다. 새로운 할 일을 추가해 보세요!
+          </div>
+        )}
+        {filtered.map((task, i) =>
+          editingId === task.id ? (
+            <EditRow
+              key={task.id}
+              task={task}
+              onSave={saveEdit}
+              onCancel={cancelEdit}
+            />
+          ) : (
+            <TaskRow
+              key={task.id}
+              task={task}
+              index={i}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+              onStartEdit={startEdit}
+              draggableProps={dnd}
+            />
+          )
+        )}
+      </div>
+
+      {/* aria-live region for screen readers */}
+      <div className="sr-only" aria-live="polite" ref={liveRef} />
+
+      {/* Footer */}
+      <footer className="mt-6 text-xs text-gray-400">
+        저장 위치: localStorage · 더블클릭으로 편집 · 드래그로 순서 변경
+      </footer>
+    </div>
+  );
+}
